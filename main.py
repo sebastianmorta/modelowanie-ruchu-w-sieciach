@@ -171,7 +171,9 @@ if __name__ == "__main__":
 
     incremental_fit(regr, X_test, y_test, 10)
 
-    #TODO: porownac blad z incremental z bledem sprzed awarii
+    #TODO:
+    # porownac blad z incremental z bledem sprzed awarii
+    # zapisywac wyniki z 2 wybranych algorytmow dla wszystkich par wezlow
 
 
 
