@@ -98,6 +98,9 @@ def incremental_fit(regresor, X_to_increment, y_to_increment, batch_len):
         plut.append(mean_absolute_percentage_error(y_to_increment[(batch_len * idx):], y_pred))
         print(idx, ".....", mean_absolute_percentage_error(y_to_increment[(batch_len * idx):], y_pred))
     plt.plot(plut)
+    plt.title(regresor.__class__.__name__)
+    plt.xlabel("time")
+    plt.ylabel("traffic")
     plt.grid()
     plt.show()
 
@@ -150,9 +153,9 @@ if __name__ == "__main__":
     X_train, y_train = split_sequence(data[:accident], n_steps)
     X_test, y_test = split_sequence(data[accident:], n_steps)
 
-    regr = MLPRegressor(random_state=1234, max_iter=1000, hidden_layer_sizes=(100,))
+    #regr = MLPRegressor(random_state=1234, max_iter=1000, hidden_layer_sizes=(100,))
     #regr = SGDRegressor(random_state=1234, max_iter=1000)
-    #regr = PassiveAggressiveRegressor(random_state=1234, max_iter=1000)
+    regr = PassiveAggressiveRegressor(random_state=1234, max_iter=1000)
 
     # scaling the data
     scaler = MinMaxScaler()
@@ -167,6 +170,8 @@ if __name__ == "__main__":
     # plot_comparison(regr.__class__.__name__, pred, y_train)
 
     incremental_fit(regr, X_test, y_test, 10)
+
+    #TODO: porownac blad z incremental z bledem sprzed awarii
 
 
 
