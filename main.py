@@ -7,7 +7,7 @@ from sklearn.model_selection import train_test_split
 import pickle
 from sklearn.metrics import mean_absolute_percentage_error
 import pandas as pd
-# import optuna
+import optuna
 # from keras.layers import LSTM, Dense
 # from keras.models import Sequential
 # from keras.layers import Dropout
@@ -46,42 +46,6 @@ def split_sequence(sequence, n_steps):
         X.append(seq_x)
         y.append(seq_y)
     return np.array(X), np.array(y)
-
-
-def MAPE(Y_actual, Y_Predicted):
-    mape = np.mean(np.abs((Y_actual - Y_Predicted) / Y_actual)) * 100
-    return mape
-
-
-def lstm_model(x):
-    num_sequences = x.shape[1]
-    print(num_sequences)
-    num_features = 1
-
-    model = Sequential()
-    model.add(
-        LSTM(10,
-             activation="relu",
-             input_shape=(num_sequences, num_features)))
-    model.add(Dense(1))
-    model.compile(loss='mse', optimizer='adam')
-    return model
-
-
-def rnn(x):
-    regressor = Sequential()
-    regressor.add(LSTM(units=50, return_sequences=True, input_shape=(x.shape[1], 1)))
-    regressor.add(Dropout(0.2))
-    # regressor.add(LSTM(units=50, return_sequences=True))
-    # regressor.add(Dropout(0.2))
-    # regressor.add(LSTM(units=50, return_sequences=True))
-    # regressor.add(Dropout(0.2))
-    # regressor.add(LSTM(units=50))
-    # regressor.add(Dropout(0.2))
-    regressor.add(Dense(units=1))
-    regressor.compile(optimizer='adam', loss='mean_absolute_percentage_error')
-
-    return regressor
 
 
 def incremental_fit(regresor, node_name, X_to_increment, y_to_increment, batch_len):
@@ -129,23 +93,42 @@ def incermental_fit_helper(before, after, node_name, regressor_name):
 #     plt.show()
 
 
-def objective(trial, X_train, y_train):
-    num_hidden = trial.suggest_int("hidden layers", 10, 500)
-    model = MLPRegressor(random_state=1234, max_iter=1000, hidden_layer_sizes=(num_hidden,))
+def mlp_objective(trial, X_train, y_train, X_test, y_test):
+    num_hidden = trial.suggest_int("hidden layers", 10, 200)
+    warm_start = trial.suggest_categorical("warm", [True, False])
+    model = MLPRegressor(random_state=1234, max_iter=1000, hidden_layer_sizes=(num_hidden,), warm_start=warm_start)
     model.fit(X_train, y_train)
-    pred = model.predict(X_train)
-    score = mean_absolute_percentage_error(pred, y_train)
+    pred = model.predict(X_test)
+    score = mean_absolute_percentage_error(pred, y_test)
     return score
 
+
+def sgd_objective(trial, X_train, y_train, X_test, y_test):
+    alpha = trial.suggest_float("alpha", 0.0001, 0.0010)
+    penalty = trial.suggest_categorical("penalty", ['l2', 'elasticnet'])
+    model = SGDRegressor(random_state=1234, max_iter=1000, alpha=alpha, penalty=penalty)
+    model.fit(X_train, y_train)
+    pred = model.predict(X_test)
+    score = mean_absolute_percentage_error(pred, y_test)
+    return score
+
+
+def pa_objective(trial, X_train, y_train, X_test, y_test):
+    C = trial.suggest_float("C", 0.001, 1)
+    model = PassiveAggressiveRegressor(random_state=1234, max_iter=1000, C=C)
+    model.fit(X_train, y_train)
+    pred = model.predict(X_test)
+    score = mean_absolute_percentage_error(pred, y_test)
+    return score
 
 if __name__ == "__main__":
     nodes = [(5, 8), (8, 5), (5, 12), (8, 12)]
     data_size = 20000
     n_steps = 500
     nodes_name = [" 5 -> 8", " 8 -> 5", " 5 -> 12", " 8 -> 12"]
-    regressors = [MLPRegressor(random_state=1234, max_iter=1000, hidden_layer_sizes=(100,)),
-                  SGDRegressor(random_state=1234, max_iter=1000),
-                  PassiveAggressiveRegressor(random_state=1234, max_iter=1000)]
+    regressors = [MLPRegressor(random_state=1234, max_iter=1000, hidden_layer_sizes=(106,)),
+                  SGDRegressor(random_state=1234, max_iter=1000, penalty='elasticnet', alpha=0.0008),
+                  PassiveAggressiveRegressor(random_state=1234, max_iter=1000, C=0.012)]
 
     # steps_vector = [n for n in range(1600, 6000, 50)]
 
@@ -182,6 +165,12 @@ if __name__ == "__main__":
         X_test_before_accident = scaler.transform(X_test_before_accident)
         X_test_after_accident = scaler.transform(X_test_after_accident)
 
+        # optimizing hyperparameters
+        # study = optuna.create_study()
+        # study.optimize(lambda trial: mlp_objective(trial, X_train, y_train, X_test_before_accident, y_test_before_accident), n_trials=50)
+        # study.optimize(lambda trial: sgd_objective(trial, X_train, y_train, X_test_before_accident, y_test_before_accident), n_trials=50)
+        # study.optimize(lambda trial: pa_objective(trial, X_train, y_train, X_test_before_accident, y_test_before_accident), n_trials=50)
+
         for regr in regressors:
             regr.fit(X_train, y_train)  # train on the traffic before accident
             before = incremental_fit(regr, name, X_test_before_accident, y_test_before_accident, 10)
@@ -201,9 +190,6 @@ if __name__ == "__main__":
 
     results_df.to_csv('results.csv',index=False)
 
-    # TODO:
-    # porownac blad z incremental z bledem sprzed awarii
-    # zapisywac wyniki z 2 wybranych algorytmow dla wszystkich par wezlow
 
     ######
 
