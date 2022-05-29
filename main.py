@@ -66,11 +66,8 @@ def incermental_fit_helper(before, after, node_name, regressor_name):
     plt.plot(plut, label=regressor_name)
     plt.title(node_name)
     plt.legend()
-    # plt.xlabel("time")
-    # plt.ylabel("traffic")
-    # plt.axvline(x=3000 / batch_len, color='r', label='accident')
     plt.grid()
-    # plt.show()
+
     return results_row
 
 
