@@ -1,26 +1,17 @@
 import os
-import numpy as np
-import matplotlib.pyplot as plt
-import plotly.express as px
-from sklearn.neural_network import MLPRegressor
-from sklearn.model_selection import train_test_split
 import pickle
-from sklearn.metrics import mean_absolute_percentage_error
-import pandas as pd
 import optuna
-# from keras.layers import LSTM, Dense
-# from keras.models import Sequential
-# from keras.layers import Dropout
-# from keras.models import load_model
-
-from statsmodels.graphics.tsaplots import plot_acf
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import plotly.express as px
+from sklearn.linear_model import PassiveAggressiveRegressor
+from sklearn.linear_model import SGDRegressor
+from sklearn.metrics import mean_absolute_percentage_error
+from sklearn.neural_network import MLPRegressor
 # from statsmodels.tsa.stattools import acf
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.preprocessing import normalize
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.neighbors import KNeighborsRegressor
-from sklearn.linear_model import SGDRegressor
-from sklearn.linear_model import PassiveAggressiveRegressor
+from statsmodels.graphics.tsaplots import plot_acf
 
 
 def Reader(path, node):
@@ -129,8 +120,6 @@ if __name__ == "__main__":
     regressors = [MLPRegressor(random_state=1234, max_iter=1000, hidden_layer_sizes=(106,)),
                   SGDRegressor(random_state=1234, max_iter=1000, penalty='elasticnet', alpha=0.0008),
                   PassiveAggressiveRegressor(random_state=1234, max_iter=1000, C=0.012)]
-
-    # steps_vector = [n for n in range(1600, 6000, 50)]
 
     accident = 11000
     train_dataset = 8000

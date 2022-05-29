@@ -76,20 +76,6 @@ if __name__ == "__main__":
     # TODO ocena predykcji przy pomocy metryki MAPE
     # print(MAPE(y_test, predictions))
 
-    # print(chuj)
     fig = px.line(vectors)
     fig.show()
-    # plt.plot(chuj)
     # plt.show()
-
-# śmiesnze
-# # nodes = [(5, 8), (8, 5), (5, 12), (8, 12)]
-# nodes = [(4, 7), (7, 4), (4, 11), (7, 11)]
-# vectors = [Reader('Generator ruchu/traffic', n) for n in nodes]
-# # for node in nodes:
-# # chuj = Reader('Generator ruchu/traffic', (4, 11))
-# # print(chuj)
-# fig = px.line(vectors)
-# fig.show()
-# # plt.plot(chuj)
-# # plt.show()
