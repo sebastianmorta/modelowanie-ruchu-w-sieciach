@@ -177,10 +177,7 @@ if __name__ == "__main__":
             after = incremental_fit(regr, name, X_test_after_accident, y_test_after_accident, 10)
             result_row = incermental_fit_helper(before, after, name, regr.__class__.__name__)
             results_df = results_df.append(result_row, ignore_index=True)
-        # predict on the training data
-        #     pred = regr.predict(X_train)
-        #     print(mean_absolute_percentage_error(pred, y_train))
-        # plot_comparison(regr.__class__.__name__, pred, y_train)
+
         plt.xlabel("time")
         plt.ylabel("MAPE")
         plt.title(name)
