@@ -7,7 +7,7 @@ from sklearn.model_selection import train_test_split
 import pickle
 from sklearn.metrics import mean_absolute_percentage_error
 import pandas as pd
-import optuna
+# import optuna
 # from keras.layers import LSTM, Dense
 # from keras.models import Sequential
 # from keras.layers import Dropout
@@ -84,10 +84,10 @@ def rnn(x):
     return regressor
 
 
-def incremental_fit(regresor, X_to_increment, y_to_increment, batch_len):
+def incremental_fit(regresor, node_name, X_to_increment, y_to_increment, batch_len):
     X = [X_to_increment[x:x + batch_len] for x in range(0, len(X_to_increment), batch_len)]
     y = [y_to_increment[x:x + batch_len] for x in range(0, len(y_to_increment), batch_len)]
-    plut=[]
+    plut = []
     for X_inc, y_inc, idx in zip(X, y, range(len(X))):
         regresor.partial_fit(X_inc, y_inc)
         # y_pred = regresor.predict(X_to_increment.difference(X_inc))
@@ -96,23 +96,37 @@ def incremental_fit(regresor, X_to_increment, y_to_increment, batch_len):
         # y_pred = regresor.predict(X_to_increment)
         # print(mean_absolute_percentage_error(y_to_increment, y_pred))
         plut.append(mean_absolute_percentage_error(y_to_increment[(batch_len * idx):], y_pred))
-        print(idx, ".....", mean_absolute_percentage_error(y_to_increment[(batch_len * idx):], y_pred))
-    plt.plot(plut)
-    plt.title(regresor.__class__.__name__)
-    plt.xlabel("time")
-    plt.ylabel("traffic")
-    plt.grid()
-    plt.show()
+        # print(idx, ".....", mean_absolute_percentage_error(y_to_increment[(batch_len * idx):], y_pred))
+    return plut
 
 
-def plot_comparison(name, pred, y_test):
-    plt.title(name)
-    plt.xlabel("time")
-    plt.ylabel("traffic")
-    plt.plot(pred)
-    plt.plot(y_test)
+def incermental_fit_helper(before, after, node_name, regressor_name):
+    mape_before = sum(before) / len(before)
+    mape_after = sum(after) / len(after)
+    print(f"Average of {node_name}, {regressor_name} before accident is: ", mape_before)
+    print(f"Average of {node_name}, {regressor_name} after accident is: ", mape_after)
+    results_row = {'nodes': node_name, 'regressor': regressor_name, 'MAPE_before': mape_before * 100, 'MAPE_after': mape_after * 100}
+
+    plut = before + after
+    plt.plot(plut, label=regressor_name)
+    plt.title(node_name)
+    plt.legend()
+    # plt.xlabel("time")
+    # plt.ylabel("traffic")
+    # plt.axvline(x=3000 / batch_len, color='r', label='accident')
     plt.grid()
-    plt.show()
+    # plt.show()
+    return results_row
+
+
+# def plot_comparison(name_regr, node_name,  pred, y_test):
+#     plt.title(name_regr,node_name)
+#     plt.xlabel("time")
+#     plt.ylabel("traffic")
+#     plt.plot(pred)
+#     plt.plot(y_test)
+#     plt.grid()
+#     plt.show()
 
 
 def objective(trial, X_train, y_train):
@@ -123,14 +137,20 @@ def objective(trial, X_train, y_train):
     score = mean_absolute_percentage_error(pred, y_train)
     return score
 
+
 if __name__ == "__main__":
     nodes = [(5, 8), (8, 5), (5, 12), (8, 12)]
     data_size = 20000
     n_steps = 500
+    nodes_name = [" 5 -> 8", " 8 -> 5", " 5 -> 12", " 8 -> 12"]
+    regressors = [MLPRegressor(random_state=1234, max_iter=1000, hidden_layer_sizes=(100,)),
+                  SGDRegressor(random_state=1234, max_iter=1000),
+                  PassiveAggressiveRegressor(random_state=1234, max_iter=1000)]
 
     # steps_vector = [n for n in range(1600, 6000, 50)]
 
     accident = 11000
+    train_dataset = 8000
 
     # save generated traffic to file
     # vectors = np.array([Reader('Generator ruchu/traffic', n) for n in nodes])
@@ -138,50 +158,52 @@ if __name__ == "__main__":
 
     # load generated traffic from file
     vectors = pickle.load(open('vectors.pkl', 'rb'))
-    data = vectors[0]
 
-    # plot autocorrelation
-    plot_acf(data, lags=1000)
-    plt.show()
+    column_names = ["nodes", "regressor", "MAPE_before", "MAPE_after"]
+    results_df = pd.DataFrame(columns=column_names)
+    for num, name in zip(range(len(nodes)), nodes_name):
+        data = vectors[num]
 
-    # plotting the traffic
-    fig = px.line(data)
-    fig.show()
+        # plot autocorrelation
+        plot_acf(data, lags=1000)
+        plt.show()
 
-    # # mape=[]
-    # # for n_steps in steps_vector:
-    X_train, y_train = split_sequence(data[:accident], n_steps)
-    X_test, y_test = split_sequence(data[accident:], n_steps)
+        # plotting the traffic
+        fig = px.line(data)
+        fig.show()
 
-    #regr = MLPRegressor(random_state=1234, max_iter=1000, hidden_layer_sizes=(100,))
-    #regr = SGDRegressor(random_state=1234, max_iter=1000)
-    regr = PassiveAggressiveRegressor(random_state=1234, max_iter=1000)
+        X_train, y_train = split_sequence(data[:train_dataset], n_steps)
+        X_test_before_accident, y_test_before_accident = split_sequence(data[train_dataset:accident], n_steps)
+        X_test_after_accident, y_test_after_accident = split_sequence(data[accident:], n_steps)
 
-    # scaling the data
-    scaler = MinMaxScaler()
-    X_train = scaler.fit_transform(X_train)
-    X_test = scaler.transform(X_test)
+        # scaling the data
+        scaler = MinMaxScaler()
+        X_train = scaler.fit_transform(X_train)
+        X_test_before_accident = scaler.transform(X_test_before_accident)
+        X_test_after_accident = scaler.transform(X_test_after_accident)
 
-    regr.fit(X_train, y_train)  # train on the traffic before accident
+        for regr in regressors:
+            regr.fit(X_train, y_train)  # train on the traffic before accident
+            before = incremental_fit(regr, name, X_test_before_accident, y_test_before_accident, 10)
+            after = incremental_fit(regr, name, X_test_after_accident, y_test_after_accident, 10)
+            result_row = incermental_fit_helper(before, after, name, regr.__class__.__name__)
+            results_df = results_df.append(result_row, ignore_index=True)
+        # predict on the training data
+        #     pred = regr.predict(X_train)
+        #     print(mean_absolute_percentage_error(pred, y_train))
+        # plot_comparison(regr.__class__.__name__, pred, y_train)
+        plt.xlabel("time")
+        plt.ylabel("MAPE")
+        plt.title(name)
 
-    # predict on the training data
-    pred = regr.predict(X_train)
-    print(mean_absolute_percentage_error(pred, y_train))
-    # plot_comparison(regr.__class__.__name__, pred, y_train)
+        plt.axvline(x=300, color='r', label='accident')
+        plt.show()
 
-    incremental_fit(regr, X_test, y_test, 10)
+    results_df.to_csv('results.csv',index=False)
 
-    #TODO:
+    # TODO:
     # porownac blad z incremental z bledem sprzed awarii
     # zapisywac wyniki z 2 wybranych algorytmow dla wszystkich par wezlow
-
-
-
-
-
-
-
-
 
     ######
 
@@ -245,11 +267,7 @@ if __name__ == "__main__":
     # plt.grid()
     # plt.show()
 
-
-
     # print(mean_absolute_percentage_error(y_test, pred))
-
-
 
     # neigh = KNeighborsRegressor(n_neighbors=1000)
     # neigh.fit(X_train, y_train)
@@ -261,5 +279,3 @@ if __name__ == "__main__":
     # plt.plot(y_test)
     # plt.grid()
     # plt.show()
-
-
